@@ -495,9 +495,9 @@ MonoBehaviour:
       Owner: {fileID: 159180460}
       Enabled: 1
       Input:
-        InputAction: {fileID: 0}
+        InputAction: {fileID: -5630151704836100654, guid: 052faaac586de48259a63d0c4782560b, type: 3}
         Gain: 1
-        LegacyInput: 
+        LegacyInput: Mouse X
         LegacyGain: 1
         CancelDeltaTime: 0
       InputValue: 0
@@ -508,9 +508,9 @@ MonoBehaviour:
       Owner: {fileID: 159180460}
       Enabled: 1
       Input:
-        InputAction: {fileID: 0}
+        InputAction: {fileID: -5630151704836100654, guid: 052faaac586de48259a63d0c4782560b, type: 3}
         Gain: 1
-        LegacyInput: 
+        LegacyInput: Mouse Y
         LegacyGain: 1
         CancelDeltaTime: 0
       InputValue: 0
@@ -1169,6 +1169,7 @@ GameObject:
   - component: {fileID: 727259663}
   - component: {fileID: 727259662}
   - component: {fileID: 727259665}
+  - component: {fileID: 727259666}
   m_Layer: 0
   m_Name: MainCamera
   m_TagString: MainCamera
@@ -1326,6 +1327,18 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   CustomBlends: {fileID: 0}
+--- !u!114 &727259666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 727259660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33e5b5e928aa487439589d330ba8efe2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraCursor
 --- !u!1 &737414524
 GameObject:
   m_ObjectHideFlags: 0
@@ -1936,6 +1949,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   moveSpeed: 5
   groundDrag: 0.5
+  rotationSpeed: 15
   jumpForce: 2
   jumpCooldown: 5
   airMultiplier: 2
@@ -1952,7 +1966,7 @@ MonoBehaviour:
   jumpKey: 32
   dashKey: 304
   crouchKey: 306
-  orientation: {fileID: 528698326}
+  cameraTransform: {fileID: 727259661}
   rb: {fileID: 1534180543}
 --- !u!136 &1534180545
 CapsuleCollider:
