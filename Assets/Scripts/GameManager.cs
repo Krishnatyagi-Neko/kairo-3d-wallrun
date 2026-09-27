@@ -20,16 +20,31 @@ public class GameManager : MonoBehaviour
 
     public void LoadGame()
     {
+        Time.timeScale = 1f;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
         SceneManager.LoadScene("Game");
     }
 
     public void LoadGameOver()
     {
+        Time.timeScale = 1f;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         SceneManager.LoadScene("GameOver");
     }
 
     public void LoadMainMenu()
     {
+        Time.timeScale = 1f;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         SceneManager.LoadScene("MainMenu");
     }
 }
