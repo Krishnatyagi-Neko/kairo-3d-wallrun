@@ -522,7 +522,7 @@ MonoBehaviour:
     OrthographicSize: 5
     NearClipPlane: 0.01
     FarClipPlane: 1000
-    Dutch: -0.00003450465
+    Dutch: -0.000000001743112
     ModeOverride: 0
     PhysicalProperties:
       GateFit: 2
@@ -2173,7 +2173,7 @@ MonoBehaviour:
   maxWallRunTime: 2.5
   wallCheckDistance: 1.2
   wallJumpForce: 10
-  wallJumpAwayForce: 8
+  wallJumpAwayForce: 15
   playerHeight: 2
   whatIsGround:
     serializedVersion: 2

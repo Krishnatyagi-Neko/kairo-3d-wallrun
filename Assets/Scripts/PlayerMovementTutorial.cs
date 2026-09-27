@@ -448,7 +448,11 @@ private Vector3 cameraTargetStartPosition;
             Vector3.up * wallJumpForce +
             wallNormal * wallJumpAwayForce;
 
-        rb.linearVelocity = Vector3.zero;
+        rb.linearVelocity = new Vector3(
+            rb.linearVelocity.x,
+            0f,
+            rb.linearVelocity.z
+        );
 
         rb.AddForce(
             jumpDirection,
