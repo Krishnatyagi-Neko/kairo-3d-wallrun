@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Cinemachine;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -53,6 +54,16 @@ public class PlayerMovement : MonoBehaviour
     public Transform cameraTransform;
     public Rigidbody rb;
 
+    [Header("Wall Run Camera")]
+    public CinemachineCamera cinemachineCamera;
+    public Transform cameraTarget;
+
+    public float wallRunTilt = 12f;
+    public float cameraTiltSpeed = 8f;
+    public float wallCameraOffset = 0.2f;
+
+private Vector3 cameraTargetStartPosition;
+
     private CapsuleCollider capsuleCollider;
 
     private float horizontalInput;
@@ -77,6 +88,8 @@ public class PlayerMovement : MonoBehaviour
         normalYOffset = capsuleCollider.center.y;
 
         rb.freezeRotation = true;
+
+        cameraTargetStartPosition = cameraTarget.localPosition;
     }
 
 
@@ -91,6 +104,8 @@ public class PlayerMovement : MonoBehaviour
         CheckWall();
 
         HandleWallRun();
+
+        HandleWallRunCamera();
 
         HandleCrouch();
 
@@ -512,7 +527,53 @@ public class PlayerMovement : MonoBehaviour
                 new Vector3(0f, normalYOffset, 0f);
         }
     }
+    
+    private void HandleWallRunCamera()
+    {
+        float targetTilt = 0f;
 
+        Vector3 targetPosition = cameraTargetStartPosition;
+
+        if (isWallRunning)
+        {
+            // Which side is the wall on?
+            float wallSide = Vector3.Dot(
+                wallNormal,
+                transform.right
+            );
+
+            // Wall on LEFT
+            if (wallSide > 0f)
+            {
+                targetTilt = -wallRunTilt;
+            }
+            // Wall on RIGHT
+            else
+            {
+                targetTilt = +wallRunTilt;
+            }
+
+            // Move camera slightly AWAY from the wall.
+            Vector3 offset = wallNormal * wallCameraOffset;
+
+            targetPosition += transform.InverseTransformVector(offset);
+        }
+
+        // Smooth camera roll
+        cinemachineCamera.Lens.Dutch = Mathf.Lerp
+        (
+            cinemachineCamera.Lens.Dutch,
+            targetTilt,
+            cameraTiltSpeed * Time.deltaTime
+        );
+
+        // Smooth camera position
+        cameraTarget.localPosition = Vector3.Lerp(
+            cameraTarget.localPosition,
+            targetPosition,
+            cameraTiltSpeed * Time.deltaTime
+        );
+    }
 
     // =========================================================
     // GETTERS

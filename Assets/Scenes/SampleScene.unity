@@ -522,7 +522,7 @@ MonoBehaviour:
     OrthographicSize: 5
     NearClipPlane: 0.01
     FarClipPlane: 1000
-    Dutch: 0
+    Dutch: -0.00003450465
     ModeOverride: 0
     PhysicalProperties:
       GateFit: 2
@@ -2186,6 +2186,11 @@ MonoBehaviour:
   crouchKey: 306
   cameraTransform: {fileID: 727259661}
   rb: {fileID: 1534180543}
+  cinemachineCamera: {fileID: 159180458}
+  cameraTarget: {fileID: 208578240}
+  wallRunTilt: 12
+  cameraTiltSpeed: 8
+  wallCameraOffset: 0.2
 --- !u!136 &1534180545
 CapsuleCollider:
   m_ObjectHideFlags: 0
