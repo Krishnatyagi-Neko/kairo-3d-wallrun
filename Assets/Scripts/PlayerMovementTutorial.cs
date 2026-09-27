@@ -5,34 +5,44 @@ public class PlayerMovement : MonoBehaviour
     [Header("Movement")]
     public float moveSpeed = 5f;
     public float groundDrag = 5f;
-    public float rotationSpeed = 15f;
+    public float airMultiplier = 0.4f;
 
     [Header("Jumping")]
     public float jumpForce = 5f;
     public float jumpCooldown = 0.25f;
-    public float airMultiplier = 0.4f;
-    bool readyToJump = true;
+    private bool readyToJump = true;
 
     [Header("Dashing")]
     public float dashForce = 20f;
+    public float dashDuration = 0.2f;
     public float dashCooldown = 1f;
-    bool readyToDash = true;
-    private float dashDuration = 0.2f;
-    private float dashTimer = 0f;
-    private bool isDashing = false;
 
-    [Header("Crouching")]
-    public float crouchSpeed = 2.5f;
-    public float crouchHeight = 1f;
-    public float normalHeight = 2f;
-    public float crouchYOffset = 0.5f;
-    bool isCrouching = false;
-    private float normalYOffset;
+    private bool readyToDash = true;
+    private bool isDashing = false;
+    private float dashTimer;
+
+    [Header("Wall Running")]
+    public float wallRunSpeed = 8f;
+    public float wallRunGravity = 1f;
+    public float maxWallRunTime = 2f;
+    public float wallCheckDistance = 0.8f;
+
+    [Header("Wall Jump")]
+    public float wallJumpForce = 5f;
+    public float wallJumpAwayForce = 5f;
+
+    private bool isWallRunning = false;
+    private float wallRunTimer;
+    private Vector3 wallNormal;
 
     [Header("Ground Check")]
     public float playerHeight = 2f;
     public LayerMask whatIsGround;
-    bool isGrounded;
+
+    private bool isGrounded;
+
+    [Header("Wall Check")]
+    public LayerMask whatIsWall;
 
     [Header("Keybinds")]
     public KeyCode jumpKey = KeyCode.Space;
@@ -45,10 +55,16 @@ public class PlayerMovement : MonoBehaviour
 
     private CapsuleCollider capsuleCollider;
 
-    float horizontalInput;
-    float verticalInput;
+    private float horizontalInput;
+    private float verticalInput;
 
-    Vector3 moveDirection;
+    private Vector3 moveDirection;
+
+    private float normalHeight;
+    private float normalYOffset;
+
+    private bool isCrouching = false;
+
 
     private void Start()
     {
@@ -56,114 +72,114 @@ public class PlayerMovement : MonoBehaviour
             rb = GetComponent<Rigidbody>();
 
         capsuleCollider = GetComponent<CapsuleCollider>();
+
+        normalHeight = capsuleCollider.height;
         normalYOffset = capsuleCollider.center.y;
 
-        // Player should only rotate through our script
         rb.freezeRotation = true;
-
-        // Automatically find the Main Camera if not assigned
-        if (cameraTransform == null && Camera.main != null)
-            cameraTransform = Camera.main.transform;
     }
+
 
     private void Update()
     {
-        // Ground check
-        isGrounded = Physics.Raycast(
-            transform.position,
-            Vector3.down,
-            playerHeight * 0.5f + 0.2f,
-            whatIsGround
-        );
+        CheckGround();
 
         HandleInput();
-        HandlePlayerRotation();
-        HandleDash();
-        HandleCrouch();
-        SpeedControl();
 
-        // Apply drag
-        if (isGrounded && !isDashing)
+        HandleDash();
+
+        CheckWall();
+
+        HandleWallRun();
+
+        HandleCrouch();
+
+        if (!isDashing && !isWallRunning)
+        {
+            SpeedControl();
+        }
+
+        if (isGrounded && !isDashing && !isWallRunning)
+        {
             rb.linearDamping = groundDrag;
+        }
         else
+        {
             rb.linearDamping = 0f;
+        }
     }
+
 
     private void FixedUpdate()
     {
+        if (isDashing)
+            return;
+
+        if (isWallRunning)
+        {
+            WallRunMovement();
+            return;
+        }
+
         MovePlayer();
     }
+
+
+    // =========================================================
+    // INPUT
+    // =========================================================
 
     private void HandleInput()
     {
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput = Input.GetAxisRaw("Vertical");
 
+
         // Jump
-        if (Input.GetKeyDown(jumpKey) && readyToJump && isGrounded)
+        if (Input.GetKeyDown(jumpKey) && readyToJump)
         {
-            readyToJump = false;
+            if (isGrounded)
+            {
+                readyToJump = false;
+                Jump();
 
-            Jump();
-
-            Invoke(nameof(ResetJump), jumpCooldown);
+                Invoke(nameof(ResetJump), jumpCooldown);
+            }
+            else if (isWallRunning)
+            {
+                WallJump();
+            }
         }
+
 
         // Dash
-        if (Input.GetKeyDown(dashKey) && readyToDash && isGrounded)
+        if (Input.GetKeyDown(dashKey) && readyToDash)
         {
-            readyToDash = false;
-
             StartDash();
 
+            readyToDash = false;
             Invoke(nameof(ResetDash), dashCooldown);
         }
+
 
         // Crouch
         isCrouching = Input.GetKey(crouchKey);
     }
 
-    private void HandlePlayerRotation()
-    {
-        if (cameraTransform == null)
-            return;
 
-        // Get camera's forward direction
-        Vector3 cameraForward = cameraTransform.forward;
-
-        // Ignore camera's vertical rotation
-        cameraForward.y = 0f;
-
-        if (cameraForward.sqrMagnitude < 0.01f)
-            return;
-
-        cameraForward.Normalize();
-
-        // Camera's horizontal rotation
-        Quaternion targetRotation = Quaternion.LookRotation(cameraForward);
-
-        // Rotate player toward camera direction
-        transform.rotation = Quaternion.Slerp(
-            transform.rotation,
-            targetRotation,
-            rotationSpeed * Time.deltaTime
-        );
-    }
+    // =========================================================
+    // NORMAL MOVEMENT
+    // =========================================================
 
     private void MovePlayer()
     {
-        if (isDashing)
-            return;
-
-        // Movement is now relative to the PLAYER,
-        // which follows the camera's horizontal direction.
         moveDirection =
             transform.forward * verticalInput +
             transform.right * horizontalInput;
 
-        // Prevent diagonal movement from being faster
-        if (moveDirection.magnitude > 1f)
+        if (moveDirection.sqrMagnitude > 1f)
             moveDirection.Normalize();
+
 
         if (isGrounded)
         {
@@ -181,6 +197,94 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+
+    // =========================================================
+    // PLAYER ROTATION
+    // =========================================================
+
+    private void LateUpdate()
+    {
+        RotatePlayerWithCamera();
+    }
+
+
+    private void RotatePlayerWithCamera()
+    {
+        if (cameraTransform == null)
+            return;
+
+        Vector3 cameraForward = cameraTransform.forward;
+
+        cameraForward.y = 0f;
+
+        if (cameraForward.sqrMagnitude < 0.01f)
+            return;
+
+        cameraForward.Normalize();
+
+        Quaternion targetRotation =
+            Quaternion.LookRotation(cameraForward);
+
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            targetRotation,
+            15f * Time.deltaTime
+        );
+    }
+
+
+    // =========================================================
+    // JUMP
+    // =========================================================
+
+    private void Jump()
+    {
+        rb.linearVelocity = new Vector3(
+            rb.linearVelocity.x,
+            0f,
+            rb.linearVelocity.z
+        );
+
+        rb.AddForce(
+            Vector3.up * jumpForce,
+            ForceMode.Impulse
+        );
+    }
+
+
+    private void ResetJump()
+    {
+        readyToJump = true;
+    }
+
+
+    // =========================================================
+    // DASH
+    // =========================================================
+
+    private void StartDash()
+    {
+        isDashing = true;
+        dashTimer = dashDuration;
+
+        Vector3 dashDirection = cameraTransform.forward;
+
+        // Don't dash upward/downward.
+        dashDirection.y = 0f;
+
+        if (dashDirection.sqrMagnitude < 0.01f)
+            dashDirection = transform.forward;
+
+        dashDirection.Normalize();
+
+        rb.linearVelocity = new Vector3(
+            dashDirection.x * dashForce,
+            rb.linearVelocity.y,
+            dashDirection.z * dashForce
+        );
+    }
+
+
     private void HandleDash()
     {
         if (!isDashing)
@@ -192,7 +296,7 @@ public class PlayerMovement : MonoBehaviour
         {
             isDashing = false;
 
-            // Stop horizontal dash velocity
+            // Stop horizontal dash velocity.
             rb.linearVelocity = new Vector3(
                 0f,
                 rb.linearVelocity.y,
@@ -201,119 +305,236 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void StartDash()
-    {
-        if (cameraTransform == null)
-            return;
-
-        isDashing = true;
-        dashTimer = dashDuration;
-
-        // Dash in camera's LOOK direction
-        Vector3 dashDirection = cameraTransform.forward;
-
-        // Don't dash into the floor/sky when looking up/down
-        dashDirection.y = 0f;
-
-        if (dashDirection.sqrMagnitude < 0.01f)
-            dashDirection = transform.forward;
-
-        dashDirection.Normalize();
-
-        rb.linearVelocity = dashDirection * dashForce;
-    }
 
     private void ResetDash()
     {
         readyToDash = true;
     }
 
-    private void HandleCrouch()
+
+    // =========================================================
+    // WALL DETECTION
+    // =========================================================
+
+    private void CheckWall()
     {
-        if (isCrouching && !isDashing)
+        if (isGrounded || isDashing)
         {
-            // Crouch
-            if (capsuleCollider.height != crouchHeight)
-            {
-                capsuleCollider.height = crouchHeight;
+            isWallRunning = false;
+            return;
+        }
 
-                capsuleCollider.center = new Vector3(
-                    0,
-                    crouchYOffset,
-                    0
-                );
-            }
 
-            if (moveSpeed != crouchSpeed)
-            {
-                moveSpeed = crouchSpeed;
-            }
+        bool wallOnRight = Physics.Raycast(
+            transform.position,
+            transform.right,
+            out RaycastHit rightHit,
+            wallCheckDistance,
+            whatIsWall
+        );
+
+
+        bool wallOnLeft = Physics.Raycast(
+            transform.position,
+            -transform.right,
+            out RaycastHit leftHit,
+            wallCheckDistance,
+            whatIsWall
+        );
+
+
+        if (wallOnRight)
+        {
+            wallNormal = rightHit.normal;
+            StartWallRun();
+        }
+        else if (wallOnLeft)
+        {
+            wallNormal = leftHit.normal;
+            StartWallRun();
         }
         else
         {
-            // Stand up
-            if (capsuleCollider.height != normalHeight)
-            {
-                capsuleCollider.height = normalHeight;
-
-                capsuleCollider.center = new Vector3(
-                    0,
-                    normalYOffset,
-                    0
-                );
-            }
-
-            if (moveSpeed != 5f)
-            {
-                moveSpeed = 5f;
-            }
+            StopWallRun();
         }
     }
 
+
+    // =========================================================
+    // WALL RUN
+    // =========================================================
+
+    private void StartWallRun()
+    {
+        if (!isWallRunning)
+        {
+            isWallRunning = true;
+            wallRunTimer = maxWallRunTime;
+        }
+    }
+
+
+    private void HandleWallRun()
+    {
+        if (!isWallRunning)
+            return;
+
+        wallRunTimer -= Time.deltaTime;
+
+        if (wallRunTimer <= 0f)
+        {
+            StopWallRun();
+        }
+    }
+
+
+    private void WallRunMovement()
+    {
+        // Reduce gravity while wall running.
+        rb.AddForce(
+            Vector3.down * wallRunGravity,
+            ForceMode.Force
+        );
+
+
+        // Find direction along the wall.
+        Vector3 wallDirection =
+            Vector3.Cross(Vector3.up, wallNormal);
+
+        // Make sure we're running in the direction we're facing.
+        if (Vector3.Dot(wallDirection, transform.forward) < 0f)
+        {
+            wallDirection = -wallDirection;
+        }
+
+
+        // Keep wall-run speed.
+        rb.linearVelocity = new Vector3(
+            wallDirection.x * wallRunSpeed,
+            rb.linearVelocity.y,
+            wallDirection.z * wallRunSpeed
+        );
+    }
+
+
+    private void StopWallRun()
+    {
+        isWallRunning = false;
+    }
+
+
+    // =========================================================
+    // WALL JUMP
+    // =========================================================
+
+    private void WallJump()
+    {
+        Vector3 jumpDirection =
+            Vector3.up * wallJumpForce +
+            wallNormal * wallJumpAwayForce;
+
+        rb.linearVelocity = Vector3.zero;
+
+        rb.AddForce(
+            jumpDirection,
+            ForceMode.Impulse
+        );
+
+        StopWallRun();
+
+        readyToJump = false;
+
+        Invoke(nameof(ResetJump), jumpCooldown);
+    }
+
+
+    // =========================================================
+    // GROUND CHECK
+    // =========================================================
+
+    private void CheckGround()
+    {
+        isGrounded = Physics.Raycast(
+            transform.position,
+            Vector3.down,
+            playerHeight * 0.5f + 0.2f,
+            whatIsGround
+        );
+    }
+
+
+    // =========================================================
+    // SPEED CONTROL
+    // =========================================================
+
     private void SpeedControl()
     {
-        Vector3 flatVel = new Vector3(
+        Vector3 flatVelocity = new Vector3(
             rb.linearVelocity.x,
             0f,
             rb.linearVelocity.z
         );
 
-        float speedLimit = isCrouching ? crouchSpeed : moveSpeed;
+        float speedLimit = isCrouching ? 2.5f : moveSpeed;
 
-        if (flatVel.magnitude > speedLimit)
+        if (flatVelocity.magnitude > speedLimit)
         {
-            Vector3 limitedVel = flatVel.normalized * speedLimit;
+            Vector3 limitedVelocity =
+                flatVelocity.normalized * speedLimit;
 
             rb.linearVelocity = new Vector3(
-                limitedVel.x,
+                limitedVelocity.x,
                 rb.linearVelocity.y,
-                limitedVel.z
+                limitedVelocity.z
             );
         }
     }
 
-    private void Jump()
-    {
-        // Reset Y velocity before jumping
-        rb.linearVelocity = new Vector3(
-            rb.linearVelocity.x,
-            0f,
-            rb.linearVelocity.z
-        );
 
-        rb.AddForce(
-            transform.up * jumpForce,
-            ForceMode.Impulse
-        );
+    // =========================================================
+    // CROUCH
+    // =========================================================
+
+    private void HandleCrouch()
+    {
+        if (isCrouching && !isDashing && !isWallRunning)
+        {
+            capsuleCollider.height = 1f;
+
+            capsuleCollider.center =
+                new Vector3(0f, 0.5f, 0f);
+        }
+        else
+        {
+            capsuleCollider.height = normalHeight;
+
+            capsuleCollider.center =
+                new Vector3(0f, normalYOffset, 0f);
+        }
     }
 
-    private void ResetJump()
+
+    // =========================================================
+    // GETTERS
+    // =========================================================
+
+    public bool IsGrounded()
     {
-        readyToJump = true;
+        return isGrounded;
     }
 
-    // Getters for animation/UI
-    public bool IsGrounded() => isGrounded;
-    public bool IsCrouching() => isCrouching;
-    public bool IsDashing() => isDashing;
+    public bool IsDashing()
+    {
+        return isDashing;
+    }
+
+    public bool IsWallRunning()
+    {
+        return isWallRunning;
+    }
+
+    public bool IsCrouching()
+    {
+        return isCrouching;
+    }
 }
