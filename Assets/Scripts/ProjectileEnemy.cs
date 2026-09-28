@@ -6,6 +6,7 @@ public class ProjectileEnemy : MonoBehaviour
     public float projectileSpeed = 20f;
     public Transform spawnPoint; 
     public float shootInterval = 2f;
+    
     private float shootTimer;
 
     private void Start()
